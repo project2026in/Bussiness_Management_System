@@ -1,10 +1,10 @@
-import 'package:bussiness_management/screens/user_registration.dart';
+import 'package:bussiness_management/screens/startup/user_registration.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'screens/splash_screen.dart';
-import 'screens/whoami_screen.dart';
+import 'screens/startup/splash_screen.dart';
+import 'screens/startup/whoami_screen.dart';
 import 'screens/owner/owner_dash.dart';
 import 'screens/admin_web/admin_login.dart';
 import 'screens/admin_web/admin_dashboard.dart';
