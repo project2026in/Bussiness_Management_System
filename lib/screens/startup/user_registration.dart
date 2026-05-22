@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/location_service.dart';
 
 class RegisterView extends StatefulWidget {
   const RegisterView({super.key});
@@ -20,7 +21,6 @@ class _RegistrationPageState extends State<RegisterView> {
   bool _obscurePassword = true;
   bool _isLoading = false;
   DateTime? _selectedDob;
-  String? _selectedRole = 'Owner';
 
   @override
   void dispose() {
@@ -56,7 +56,10 @@ class _RegistrationPageState extends State<RegisterView> {
       // Step 2: Update display name in Auth
       await credential.user!.updateDisplayName(_nameController.text.trim());
 
-      // Step 3: Save extra fields to Firestore
+      // Step 3: Fetch Location Data
+      final locData = await LocationService.fetchIpAndLocation();
+
+      // Step 4: Save extra fields to Firestore
       await FirebaseFirestore.instance
           .collection('users')
           .doc(credential.user!.uid)
@@ -65,8 +68,10 @@ class _RegistrationPageState extends State<RegisterView> {
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
-        'role': _selectedRole,
+        'role': 'Owner',
         'dob': _selectedDob?.toIso8601String(),
+        'ip': locData['ip'],
+        'location': locData['location'],
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -232,31 +237,6 @@ class _RegistrationPageState extends State<RegisterView> {
                     if (v.length < 8) return 'Minimum 8 characters';
                     return null;
                   },
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Role Selection
-              _buildCard(
-                child: DropdownButtonFormField<String>(
-                  value: _selectedRole,
-                  decoration: const InputDecoration(
-                    labelText: 'Role',
-                    prefixIcon: Icon(Icons.work_outline),
-                    border: InputBorder.none,
-                  ),
-                  items: ['Owner', 'Manager', 'Employee']
-                      .map((role) => DropdownMenuItem(
-                            value: role,
-                            child: Text(role),
-                          ))
-                      .toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedRole = val;
-                    });
-                  },
-                  validator: (v) => v == null ? 'Role is required' : null,
                 ),
               ),
               const SizedBox(height: 12),

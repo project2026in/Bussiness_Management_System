@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'users_view.dart'; // Re-using the users list we built
+import 'all_users_view.dart';
 import 'businesses_view.dart';
+import 'employees_view.dart';
 import 'settings_view.dart';
 
 class SuperAdminDashboard extends StatefulWidget {
@@ -13,10 +15,11 @@ class SuperAdminDashboard extends StatefulWidget {
 class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
   int _selectedIndex = 0;
 
-  // The screens for the right pane
   final List<Widget> _screens = [
     const AdminUsersView(),
+    const AllUsersLocationView(),
     const AdminBusinessesView(),
+    const AdminEmployeesView(),
     const _PlaceholderView(title: 'System Reports', icon: Icons.analytics),
     const SettingsView(),
   ];
@@ -52,7 +55,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         Container(
           height: 120,
           width: double.infinity,
-          color: Colors.blueGrey.shade900,
+          color: const Color(0xFF0D47A1),
           alignment: Alignment.bottomLeft,
           padding: const EdgeInsets.all(24),
           child: const Text(
@@ -68,10 +71,12 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         const SizedBox(height: 16),
         
         // Navigation Items
-        _buildSidebarItem(icon: Icons.people_alt, title: 'Users', index: 0),
-        _buildSidebarItem(icon: Icons.business, title: 'Business', index: 1),
-        _buildSidebarItem(icon: Icons.analytics, title: 'Reports', index: 2),
-        _buildSidebarItem(icon: Icons.settings, title: 'Settings', index: 3),
+        _buildSidebarItem(icon: Icons.people_alt, title: 'Owners', index: 0),
+        _buildSidebarItem(icon: Icons.public, title: 'All Users', index: 1),
+        _buildSidebarItem(icon: Icons.business, title: 'Business', index: 2),
+        _buildSidebarItem(icon: Icons.badge, title: 'Employees', index: 3),
+        _buildSidebarItem(icon: Icons.analytics, title: 'Reports', index: 4),
+        _buildSidebarItem(icon: Icons.settings, title: 'Settings', index: 5),
         
         const Spacer(),
         
@@ -104,19 +109,19 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: isSelected ? Colors.blueGrey.shade900.withValues(alpha: 0.1) : Colors.transparent,
+        color: isSelected ? const Color(0xFF0D47A1).withValues(alpha: 0.1) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         leading: Icon(
           icon,
-          color: isSelected ? Colors.blueGrey.shade900 : Colors.grey.shade600,
+          color: isSelected ? const Color(0xFF0D47A1) : Colors.grey.shade600,
         ),
         title: Text(
           title,
           style: TextStyle(
-            color: isSelected ? Colors.blueGrey.shade900 : Colors.black87,
+            color: isSelected ? const Color(0xFF0D47A1) : Colors.black87,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
         ),

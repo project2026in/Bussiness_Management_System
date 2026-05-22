@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'add_business.dart';
+import 'staff_view.dart';
+import 'home_dash_tab.dart';
+import 'reports_tab.dart';
 
 class OwnerView extends StatefulWidget {
   const OwnerView({super.key});
@@ -11,34 +14,19 @@ class OwnerView extends StatefulWidget {
 }
 
 class _OwnerViewState extends State<OwnerView> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 2;
 
-  static const List<Widget> _widgetOptions = <Widget>[
-    Center(
-      child: Text(
-        'Home Dashboard',
-        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-      ),
-    ),
-    Center(
-      child: Text(
-        'Reports',
-        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-      ),
-    ),
-    Center(
-      child: Text(
-        'Staff',
-        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-      ),
-    ),
-    Center(
+  List<Widget> get _widgetOptions => <Widget>[
+    const ReportsTab(),
+    const StaffView(),
+    HomeDashboardTab(onNavigate: _onItemTapped),
+    const Center(
       child: Text(
         'Documents',
         style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
       ),
     ),
-    OwnerProfileTab(),
+    const OwnerProfileTab(),
   ];
 
   void _onItemTapped(int index) {
@@ -74,6 +62,9 @@ class _OwnerViewState extends State<OwnerView> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Owner Dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: const Color(0xFF0D47A1),
+        foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications),
@@ -172,8 +163,8 @@ class _OwnerViewState extends State<OwnerView> {
               padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 2.0),
               child: ListTile(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                leading: const Icon(Icons.home),
-                title: const Text('Home'),
+                leading: const Icon(Icons.analytics),
+                title: const Text('Reports'),
                 selected: _selectedIndex == 0,
                 selectedTileColor: Colors.blue.withOpacity(0.1),
                 onTap: () {
@@ -186,8 +177,8 @@ class _OwnerViewState extends State<OwnerView> {
               padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 2.0),
               child: ListTile(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                leading: const Icon(Icons.analytics),
-                title: const Text('Reports'),
+                leading: const Icon(Icons.people),
+                title: const Text('Staff'),
                 selected: _selectedIndex == 1,
                 selectedTileColor: Colors.blue.withOpacity(0.1),
                 onTap: () {
@@ -200,8 +191,8 @@ class _OwnerViewState extends State<OwnerView> {
               padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 2.0),
               child: ListTile(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                leading: const Icon(Icons.people),
-                title: const Text('Staff'),
+                leading: const Icon(Icons.home),
+                title: const Text('Home'),
                 selected: _selectedIndex == 2,
                 selectedTileColor: Colors.blue.withOpacity(0.1),
                 onTap: () {
@@ -242,34 +233,61 @@ class _OwnerViewState extends State<OwnerView> {
         ),
       ),
       body: _widgetOptions.elementAt(_selectedIndex),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(30),
+            topRight: Radius.circular(30),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            label: 'Reports',
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(30),
+            topRight: Radius.circular(30),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Staff',
+          child: BottomNavigationBar(
+            elevation: 0,
+            backgroundColor: Colors.white,
+            type: BottomNavigationBarType.fixed,
+            showSelectedLabels: true,
+            showUnselectedLabels: false,
+            selectedItemColor: const Color(0xFF0D47A1),
+            unselectedItemColor: Colors.grey.shade400,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            items: <BottomNavigationBarItem>[
+              BottomNavigationBarItem(
+                icon: Icon(_selectedIndex == 0 ? Icons.analytics : Icons.analytics_outlined),
+                label: 'Reports',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(_selectedIndex == 1 ? Icons.people : Icons.people_outline),
+                label: 'Staff',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(_selectedIndex == 2 ? Icons.home : Icons.home_outlined),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(_selectedIndex == 3 ? Icons.description : Icons.description_outlined),
+                label: 'Docs',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(_selectedIndex == 4 ? Icons.person : Icons.person_outline),
+                label: 'Profile',
+              ),
+            ],
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.description),
-            label: 'Documents',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Color(0xFF0D47A1),
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
+        ),
       ),
     );
   }

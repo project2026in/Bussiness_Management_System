@@ -9,6 +9,8 @@ import 'screens/owner/owner_dash.dart';
 import 'screens/admin_web/admin_login.dart';
 import 'screens/admin_web/admin_dashboard.dart';
 import 'theme/app_theme.dart';
+import 'screens/manager/manager_dashboard.dart';
+import 'screens/employee/employee_dashboard.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -34,6 +36,8 @@ class MyApp extends StatelessWidget {
         '/owner_dash': (context) => const OwnerView(),
         '/admin_login': (context) => const AdminLoginScreen(),
         '/admin_dashboard': (context) => const SuperAdminDashboard(),
+        '/manager_dash': (context) => const ManagerDashboard(),
+        '/employee_dash': (context) => const EmployeeDashboard(),
       },
     );
   }

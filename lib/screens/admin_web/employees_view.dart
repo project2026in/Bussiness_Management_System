@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class AdminUsersView extends StatelessWidget {
-  const AdminUsersView({super.key});
+class AdminEmployeesView extends StatelessWidget {
+  const AdminEmployeesView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +14,7 @@ class AdminUsersView extends StatelessWidget {
         children: [
           // Header
           const Text(
-            'Owner Management',
+            'Employee Management',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -23,12 +23,12 @@ class AdminUsersView extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'View and manage all registered owners in the system.',
+            'View and manage all staff members across businesses.',
             style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 32),
 
-          // Users Table/List
+          // Employees Table
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -43,10 +43,7 @@ class AdminUsersView extends StatelessWidget {
                 ],
               ),
               child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .orderBy('createdAt', descending: true)
-                    .snapshots(),
+                stream: FirebaseFirestore.instance.collection('employees').snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -55,7 +52,7 @@ class AdminUsersView extends StatelessWidget {
                   if (snapshot.hasError) {
                     return Center(
                       child: Text(
-                        'Error loading users.\nCheck your Firebase Security Rules.',
+                        'Error loading employees.\nCheck your Firebase Security Rules.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.red.shade400),
                       ),
@@ -66,7 +63,7 @@ class AdminUsersView extends StatelessWidget {
 
                   if (docs.isEmpty) {
                     return const Center(
-                      child: Text('No users found in the database.'),
+                      child: Text('No employees found in the database.'),
                     );
                   }
 
@@ -77,28 +74,38 @@ class AdminUsersView extends StatelessWidget {
                       child: DataTable(
                         headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                         columns: const [
-                          DataColumn(label: Text('Avatar', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Name', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Role', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Business', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Owner', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Email', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Phone', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Role', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Salary', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Created At', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: docs.map((doc) {
                           final data = doc.data() as Map<String, dynamic>;
-                          final name = data['name'] ?? 'Unknown User';
-                          final email = data['email'] ?? 'No email provided';
+                          final name = data['name'] ?? 'Unknown';
+                          final role = data['role'] ?? 'Employee';
+                          final email = data['email'] ?? 'No email';
                           final phone = data['phone'] ?? 'N/A';
-                          final role = data['role'] ?? 'User';
-                          final photoUrl = data['photoURL'];
+                          final salary = data['salary'] ?? 'N/A';
                           final ip = data['ip'] ?? 'N/A';
                           final location = data['location'] ?? 'N/A';
-                          final createdAt = data['createdAt'] != null
-                              ? (data['createdAt'] as Timestamp).toDate().toString().split(' ')[0]
-                              : 'Unknown';
-                          final isActive = data['isActive'] ?? true;
+                          final ownerId = data['owner_id'];
+                          final businessId = data['business_id'];
+                          final createdAtData = data['created_at'];
+                          String createdAt = 'Unknown';
+                          if (createdAtData != null) {
+                            if (createdAtData is Timestamp) {
+                              createdAt = createdAtData.toDate().toString().split(' ')[0];
+                            } else {
+                              createdAt = DateTime.tryParse(createdAtData.toString())?.toString().split(' ')[0] ?? 'Unknown';
+                            }
+                          }
+                          final isActive = data['is_active'] ?? true;
                           final statusColor = isActive ? Colors.green : Colors.red;
                           final statusText = isActive ? 'Active' : 'Inactive';
 
@@ -106,26 +113,39 @@ class AdminUsersView extends StatelessWidget {
                             color: WidgetStateProperty.resolveWith<Color?>((states) => 
                                 isActive ? Colors.green.shade50 : Colors.red.shade50),
                             cells: [
-                              DataCell(
-                                CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: const Color(0xFF0D47A1).withValues(alpha: 0.1),
-                                  backgroundImage: photoUrl != null && photoUrl.toString().isNotEmpty
-                                      ? NetworkImage(photoUrl)
-                                      : null,
-                                  child: photoUrl == null || photoUrl.toString().isEmpty
-                                      ? Text(
-                                          name.isNotEmpty ? name[0].toUpperCase() : '?',
-                                          style: const TextStyle(
-                                              color: Color(0xFF0D47A1), fontWeight: FontWeight.bold, fontSize: 12),
-                                        )
-                                      : null,
-                                ),
-                              ),
                               DataCell(Text(name, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataCell(Text(role)),
+                              DataCell(
+                                businessId != null
+                                    ? FutureBuilder<DocumentSnapshot>(
+                                        future: FirebaseFirestore.instance.collection('businesses').doc(businessId).get(),
+                                        builder: (context, snap) {
+                                          if (snap.connectionState == ConnectionState.waiting) return const Text('Loading...');
+                                          if (snap.hasData && snap.data!.exists) {
+                                            return Text((snap.data!.data() as Map<String, dynamic>)['name'] ?? 'Unknown');
+                                          }
+                                          return const Text('Unknown');
+                                        },
+                                      )
+                                    : const Text('N/A'),
+                              ),
+                              DataCell(
+                                ownerId != null
+                                    ? FutureBuilder<DocumentSnapshot>(
+                                        future: FirebaseFirestore.instance.collection('users').doc(ownerId).get(),
+                                        builder: (context, snap) {
+                                          if (snap.connectionState == ConnectionState.waiting) return const Text('Loading...');
+                                          if (snap.hasData && snap.data!.exists) {
+                                            return Text((snap.data!.data() as Map<String, dynamic>)['name'] ?? 'Unknown');
+                                          }
+                                          return const Text('Unknown');
+                                        },
+                                      )
+                                    : const Text('N/A'),
+                              ),
                               DataCell(Text(email)),
                               DataCell(Text(phone)),
-                              DataCell(Text(role)),
+                              DataCell(Text(salary)),
                               DataCell(Text(createdAt)),
                               DataCell(
                                 Container(
@@ -144,30 +164,22 @@ class AdminUsersView extends StatelessWidget {
                                 PopupMenuButton<String>(
                                   icon: const Icon(Icons.more_vert_rounded, color: Colors.grey),
                                   onSelected: (value) async {
-                                    if (value == 'edit') {
-                                      _showEditUserDialog(context, doc.id, data);
-                                    } else if (value == 'toggle_status') {
-                                      await FirebaseFirestore.instance.collection('users').doc(doc.id).update({
-                                        'isActive': !isActive,
+                                    if (value == 'toggle_status') {
+                                      await FirebaseFirestore.instance.collection('employees').doc(doc.id).update({
+                                        'is_active': !isActive,
                                       });
                                     } else if (value == 'delete') {
-                                      _showDeleteUserDialog(context, doc.id);
+                                      _showDeleteDialog(context, doc.id);
                                     }
                                   },
                                   itemBuilder: (context) => [
-                                    const PopupMenuItem(
-                                      value: 'edit',
-                                      child: Row(
-                                        children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Edit')],
-                                      ),
-                                    ),
                                     PopupMenuItem(
                                       value: 'toggle_status',
                                       child: Row(
                                         children: [
                                           Icon(isActive ? Icons.block : Icons.check_circle, size: 18),
                                           const SizedBox(width: 8),
-                                          Text(isActive ? 'Deactivate' : 'Activate'),
+                                          Text(isActive ? 'Suspend' : 'Activate'),
                                         ],
                                       ),
                                     ),
@@ -195,12 +207,12 @@ class AdminUsersView extends StatelessWidget {
     );
   }
 
-  void _showDeleteUserDialog(BuildContext context, String docId) {
+  void _showDeleteDialog(BuildContext context, String docId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete User'),
-        content: const Text('Are you sure you want to delete this user? This action cannot be undone and will revoke their access to the system.'),
+        title: const Text('Delete Employee'),
+        content: const Text('Are you sure you want to delete this employee? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -209,63 +221,13 @@ class AdminUsersView extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
-              await FirebaseFirestore.instance.collection('users').doc(docId).delete();
+              await FirebaseFirestore.instance.collection('employees').doc(docId).delete();
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('Delete'),
           ),
         ],
       ),
-    );
-  }
-
-  void _showEditUserDialog(BuildContext context, String docId, Map<String, dynamic> data) {
-    final phoneController = TextEditingController(text: data['phone']);
-    String selectedRole = data['role'] ?? 'User';
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Edit User'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'Phone')),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: ['Owner', 'Manager', 'Employee', 'Superadmin', 'User'].contains(selectedRole) ? selectedRole : 'User',
-                      decoration: const InputDecoration(labelText: 'Role'),
-                      items: ['Owner', 'Manager', 'Employee', 'Superadmin', 'User']
-                          .map((role) => DropdownMenuItem(value: role, child: Text(role)))
-                          .toList(),
-                      onChanged: (val) {
-                        if (val != null) setState(() => selectedRole = val);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                ElevatedButton(
-                  onPressed: () async {
-                    await FirebaseFirestore.instance.collection('users').doc(docId).update({
-                      'phone': phoneController.text.trim(),
-                      'role': selectedRole,
-                    });
-                    if (context.mounted) Navigator.pop(context);
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
     );
   }
 }

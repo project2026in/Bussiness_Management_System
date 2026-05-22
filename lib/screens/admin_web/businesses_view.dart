@@ -91,15 +91,21 @@ class AdminBusinessesView extends StatelessWidget {
                         rows: docs.map((doc) {
                           final data = doc.data() as Map<String, dynamic>;
                           final name = data['name'] ?? 'Unknown Business';
-                          final ownerId = data['ownerId'];
+                          final ownerId = data['owner_id'] ?? data['ownerId'] ?? data['owner'];
                           final email = data['email'] ?? 'No email';
                           final phone = data['phone'] ?? 'N/A';
                           final address = data['address'] ?? 'N/A';
                           final city = data['city'] ?? 'Unknown City';
                           final country = data['country'] ?? 'Unknown Country';
-                          final createdAt = data['createdAt'] != null
-                              ? (data['createdAt'] as Timestamp).toDate().toString().split(' ')[0]
-                              : 'Unknown';
+                          final createdAtData = data['created_at'] ?? data['createdAt'];
+                          String createdAt = 'Unknown';
+                          if (createdAtData != null) {
+                            if (createdAtData is Timestamp) {
+                              createdAt = createdAtData.toDate().toString().split(' ')[0];
+                            } else {
+                              createdAt = DateTime.tryParse(createdAtData.toString())?.toString().split(' ')[0] ?? 'Unknown';
+                            }
+                          }
                           final isActive = data['isActive'] ?? true;
                           final statusColor = isActive ? Colors.green : Colors.red;
                           final statusText = isActive ? 'Active' : 'Inactive';

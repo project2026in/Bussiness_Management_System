@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/location_service.dart';
 
 class LoginView extends StatefulWidget {
   final String role;
@@ -35,6 +37,20 @@ class _LoginViewState extends State<LoginView> {
         password: _passwordController.text,
       );
 
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        try {
+          final locData = await LocationService.fetchIpAndLocation();
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+            'ip': locData['ip'],
+            'location': locData['location'],
+            'lastLogin': FieldValue.serverTimestamp(),
+          });
+        } catch (_) {
+          // Ignore if location update fails
+        }
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -45,8 +61,11 @@ class _LoginViewState extends State<LoginView> {
 
         if (widget.role == 'Owner') {
           Navigator.pushReplacementNamed(context, '/owner_dash');
+        } else if (widget.role == 'Manager') {
+          Navigator.pushReplacementNamed(context, '/manager_dash');
+        } else if (widget.role == 'Employee') {
+          Navigator.pushReplacementNamed(context, '/employee_dash');
         } else {
-          // TODO: Add other routes for Manager/Employee later
           Navigator.pushReplacementNamed(context, '/home');
         }
       }

@@ -40,21 +40,44 @@ class _SplashViewState extends State<SplashView>
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         try {
+          var role = 'Owner'; // default fallback
+          
           final doc = await FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
               .get();
           
-          if (mounted && doc.exists && doc.data() != null) {
-            final role = doc.data()!['role'] ?? 'Owner';
-            if (role == 'Owner') {
-              Navigator.pushReplacementNamed(context, '/owner_dash');
-              return;
+          if (doc.exists && doc.data() != null) {
+            role = doc.data()!['role'] ?? 'Owner';
+          } else {
+            // Check employees collection if not found in users
+            final empDoc = await FirebaseFirestore.instance
+                .collection('employees')
+                .doc(user.uid)
+                .get();
+            
+            if (empDoc.exists && empDoc.data() != null) {
+              role = empDoc.data()!['role'] ?? 'Employee';
             } else {
-              // Redirect Managers/Employees to /home until their dashboards are ready
-              Navigator.pushReplacementNamed(context, '/home');
+              if (mounted) {
+                Navigator.pushReplacementNamed(context, '/home');
+              }
               return;
             }
+          }
+
+          if (mounted) {
+            if (role == 'Owner') {
+              Navigator.pushReplacementNamed(context, '/owner_dash');
+            } else if (role == 'Manager') {
+              Navigator.pushReplacementNamed(context, '/manager_dash');
+            } else if (role == 'Employee' || role == 'Cashier') {
+              // Assuming Cashier routes to employee_dash or add specifically if there's a cashier_dash
+              Navigator.pushReplacementNamed(context, '/employee_dash');
+            } else {
+              Navigator.pushReplacementNamed(context, '/home');
+            }
+            return;
           }
         } catch (e) {
           // Fallback if error fetching role
