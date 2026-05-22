@@ -82,6 +82,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
       Map<int, double> de = {};
 
       final now = DateTime.now();
+      final yesterday = now.subtract(const Duration(days: 1));
 
       for (var bid in businessIds) {
         final reportsQuery = await FirebaseFirestore.instance
@@ -100,8 +101,8 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
           
           final docDate = (data['date'] as Timestamp?)?.toDate();
           if (docDate != null) {
-            // Check if Today
-            if (docDate.year == now.year && docDate.month == now.month && docDate.day == now.day) {
+            // Check if Yesterday
+            if (docDate.year == yesterday.year && docDate.month == yesterday.month && docDate.day == yesterday.day) {
               todaySales += sale;
               todayExp += totalExpense;
               if (sale > 0) tsBreakdown.add({'business_name': bMap[bid], 'amount': sale});
@@ -224,7 +225,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 const Text(
-                  "Today's Financials",
+                  "Yesterday's Financials",
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                 ),
                 const SizedBox(height: 16),
@@ -232,7 +233,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => _pushBreakdown("Today's Sales", _todaySalesBreakdown, false),
+                        onTap: () => _pushBreakdown("Yesterday's Sales", _todaySalesBreakdown, false),
                         child: _buildGradientCard(
                           title: "Sales",
                           value: '\$${_todaySales.toStringAsFixed(0)}',
@@ -245,7 +246,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => _pushBreakdown("Today's Expenses", _todayExpBreakdown, true),
+                        onTap: () => _pushBreakdown("Yesterday's Expenses", _todayExpBreakdown, true),
                         child: _buildGradientCard(
                           title: "Expenses",
                           value: '\$${_todayExpenses.toStringAsFixed(0)}',

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../utils/web_download.dart';
 
 class AdminUsersView extends StatelessWidget {
   const AdminUsersView({super.key});
@@ -13,18 +15,39 @@ class AdminUsersView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          const Text(
-            'Owner Management',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0D47A1),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'View and manage all registered owners in the system.',
-            style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Owner Management',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0D47A1),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'View and manage all registered owners in the system.',
+                    style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+              TextButton.icon(
+                onPressed: () => _downloadJson(context),
+                icon: const Icon(Icons.download_for_offline, size: 18),
+                label: const Text('Download JSON'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF0D47A1),
+                  backgroundColor: Colors.blue.shade50,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 32),
 
@@ -267,5 +290,31 @@ class AdminUsersView extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _downloadJson(BuildContext context) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('users').get();
+      final List<Map<String, dynamic>> jsonList = [];
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        data.forEach((key, value) {
+          if (value is Timestamp) {
+            data[key] = value.toDate().toIso8601String();
+          }
+        });
+        jsonList.add(data);
+      }
+      final jsonString = jsonEncode(jsonList);
+      downloadJsonFile(jsonString, 'users.json');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Downloaded users.json')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error downloading JSON: $e')));
+      }
+    }
   }
 }

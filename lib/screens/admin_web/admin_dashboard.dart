@@ -4,6 +4,8 @@ import 'all_users_view.dart';
 import 'businesses_view.dart';
 import 'employees_view.dart';
 import 'settings_view.dart';
+import 'reports_view.dart';
+import 'notifications_view.dart';
 
 class SuperAdminDashboard extends StatefulWidget {
   const SuperAdminDashboard({super.key});
@@ -20,7 +22,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     const AllUsersLocationView(),
     const AdminBusinessesView(),
     const AdminEmployeesView(),
-    const _PlaceholderView(title: 'System Reports', icon: Icons.analytics),
+    const AdminReportsView(),
+    const AdminNotificationsView(),
     const SettingsView(),
   ];
 
@@ -76,7 +79,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         _buildSidebarItem(icon: Icons.business, title: 'Business', index: 2),
         _buildSidebarItem(icon: Icons.badge, title: 'Employees', index: 3),
         _buildSidebarItem(icon: Icons.analytics, title: 'Reports', index: 4),
-        _buildSidebarItem(icon: Icons.settings, title: 'Settings', index: 5),
+        _buildSidebarItem(icon: Icons.notifications_active, title: 'Broadcasts', index: 5),
+        _buildSidebarItem(icon: Icons.settings, title: 'Settings', index: 6),
         
         const Spacer(),
         

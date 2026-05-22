@@ -17,7 +17,7 @@ class StatBreakdownScreen extends StatelessWidget {
     // Group totals by business name
     final Map<String, double> aggregated = {};
     for (var item in breakdownList) {
-      final name = item['business_name'] ?? 'Unknown Business';
+      final name = item['label'] ?? item['business_name'] ?? 'Unknown';
       final amount = (item['amount'] as num?)?.toDouble() ?? 0.0;
       aggregated[name] = (aggregated[name] ?? 0) + amount;
     }

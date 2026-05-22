@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'report_detail_screen.dart';
 
 class ReportsTab extends StatefulWidget {
   const ReportsTab({super.key});
@@ -138,206 +139,294 @@ class _ReportsTabState extends State<ReportsTab> {
 
     return Column(
       children: [
-        // Filter Bar
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: Colors.black12)),
+        ClipRRect(
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(30),
+            bottomRight: Radius.circular(30),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Business Dropdown
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: _selectedBusinessId,
-                    hint: const Text('All Businesses'),
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('All Businesses', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      ..._businessMap.entries.map((e) {
-                        return DropdownMenuItem<String>(
-                          value: e.key,
-                          child: Text(e.value),
-                        );
-                      }),
-                    ],
-                    onChanged: (val) => setState(() => _selectedBusinessId = val),
-                  ),
-                ),
+          child: Container(
+            padding: const EdgeInsets.only(top: 40, left: 24, right: 24, bottom: 48),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(height: 12),
-              
-              // Date and Clear
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton.icon(
-                    onPressed: _selectDate,
-                    icon: const Icon(Icons.calendar_today, size: 18),
-                    label: Text(
-                      _selectedDate == null 
-                        ? 'Filter by Date' 
-                        : DateFormat('MMM d, yyyy').format(_selectedDate!),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  right: -20,
+                  top: -40,
+                  child: Icon(Icons.analytics, size: 160, color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                Row(
+                  children: [
+                    const Icon(Icons.analytics, color: Colors.white, size: 32),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Financial Reports',
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: _selectedDate == null ? Colors.grey.shade700 : const Color(0xFF0D47A1),
-                    ),
-                  ),
-                  if (_selectedDate != null || _selectedBusinessId != null)
-                    TextButton.icon(
-                      onPressed: _clearFilters,
-                      icon: const Icon(Icons.clear, size: 18),
-                      label: const Text('View All'),
-                      style: TextButton.styleFrom(foregroundColor: Colors.red),
-                    ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-        
-        // List View
         Expanded(
           child: RefreshIndicator(
             onRefresh: _fetchReports,
-            child: filtered.isEmpty
-                ? ListView(
-                    children: [
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.3),
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.assignment_outlined, size: 64, color: Colors.grey.shade300),
-                            const SizedBox(height: 16),
-                            const Text('No reports found.', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                          ],
+            child: CustomScrollView(
+              slivers: [
+
+          // Filters
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              color: Colors.grey.shade50,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
+                      ],
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: _selectedBusinessId,
+                        icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF0D47A1)),
+                        hint: const Text('All Businesses', style: TextStyle(fontWeight: FontWeight.w600)),
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('All Businesses', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0D47A1))),
+                          ),
+                          ..._businessMap.entries.map((e) {
+                            return DropdownMenuItem<String>(
+                              value: e.key,
+                              child: Text(e.value, style: const TextStyle(fontWeight: FontWeight.w500)),
+                            );
+                          }),
+                        ],
+                        onChanged: (val) => setState(() => _selectedBusinessId = val),
                       ),
-                    ],
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final report = filtered[index];
-                      final date = (report['date'] as Timestamp?)?.toDate() ?? DateTime.now();
-                      final dateStr = DateFormat('EEEE, MMM d, yyyy').format(date);
-                      final businessName = report['business_name'] ?? 'Unknown Business';
-
-                      final income = (report['sale'] as num?)?.toDouble() ?? 0.0;
-                      final purchase = (report['purchase'] as num?)?.toDouble() ?? 0.0;
-                      final expense = (report['expense'] as num?)?.toDouble() ?? 0.0;
-                      final salary = (report['salary'] as num?)?.toDouble() ?? 0.0;
-                      final other = (report['other_expense'] as num?)?.toDouble() ?? 0.0;
-                      final totalExpense = purchase + expense + salary + other;
-                      final profit = income - totalExpense;
-
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    dateStr,
-                                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade800),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: _selectDate,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _selectedDate == null ? Colors.white : const Color(0xFF0D47A1).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: _selectedDate == null ? Colors.transparent : const Color(0xFF0D47A1)),
+                              boxShadow: _selectedDate == null ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ] : [],
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.calendar_today, size: 18, color: _selectedDate == null ? Colors.grey.shade600 : const Color(0xFF0D47A1)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _selectedDate == null 
+                                    ? 'Filter by Date' 
+                                    : DateFormat('MMM d, yyyy').format(_selectedDate!),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: _selectedDate == null ? Colors.grey.shade600 : const Color(0xFF0D47A1),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: profit >= 0 ? Colors.green.shade50 : Colors.red.shade50,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      profit >= 0 ? 'PROFIT' : 'LOSS',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: profit >= 0 ? Colors.green.shade700 : Colors.red.shade700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(Icons.storefront, size: 16, color: Color(0xFF0D47A1)),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      businessName,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF0D47A1),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                child: Divider(height: 1),
-                              ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Income', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                                      Text('\$${income.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                    ],
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Expenses', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                                      Text('\$${totalExpense.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                    ],
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text('Net', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                                      Text(
-                                        '\$${profit.toStringAsFixed(2)}',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                          color: profit >= 0 ? Colors.green : Colors.red,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      );
-                    },
+                      ),
+                      if (_selectedDate != null || _selectedBusinessId != null) ...[
+                        const SizedBox(width: 12),
+                        IconButton(
+                          onPressed: _clearFilters,
+                          icon: const Icon(Icons.clear, color: Colors.redAccent),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.red.shade50,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ]
+                    ],
                   ),
+                ],
+              ),
+            ),
+          ),
+          
+          // List
+          if (filtered.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.assignment_outlined, size: 80, color: Colors.grey.shade300),
+                    const SizedBox(height: 16),
+                    Text('No reports found.', style: TextStyle(color: Colors.grey.shade600, fontSize: 18, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final report = filtered[index];
+                    final date = (report['date'] as Timestamp?)?.toDate() ?? DateTime.now();
+                    final dateStr = DateFormat('EEEE, MMM d, yyyy').format(date);
+                    final businessName = report['business_name'] ?? 'Unknown Business';
+
+                    final income = (report['sale'] as num?)?.toDouble() ?? 0.0;
+                    final purchase = (report['purchase'] as num?)?.toDouble() ?? 0.0;
+                    final expense = (report['expense'] as num?)?.toDouble() ?? 0.0;
+                    final salary = (report['salary'] as num?)?.toDouble() ?? 0.0;
+                    final other = (report['other_expense'] as num?)?.toDouble() ?? 0.0;
+                    final totalExpense = purchase + expense + salary + other;
+                    final profit = income - totalExpense;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => ReportDetailScreen(reportData: report)));
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      dateStr,
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.grey.shade800),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: profit >= 0 ? Colors.green.shade50 : Colors.red.shade50,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: profit >= 0 ? Colors.green.shade200 : Colors.red.shade200),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(profit >= 0 ? Icons.arrow_upward : Icons.arrow_downward, size: 12, color: profit >= 0 ? Colors.green.shade700 : Colors.red.shade700),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            profit >= 0 ? 'PROFIT' : 'LOSS',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w900,
+                                              color: profit >= 0 ? Colors.green.shade700 : Colors.red.shade700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(color: const Color(0xFF0D47A1).withValues(alpha: 0.1), shape: BoxShape.circle),
+                                      child: const Icon(Icons.storefront, size: 18, color: Color(0xFF0D47A1)),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        businessName,
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  child: Divider(height: 1),
+                                ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    _buildStatColumn('Income', income, Colors.green),
+                                    _buildStatColumn('Expenses', totalExpense, Colors.red),
+                                    _buildStatColumn('Net', profit, profit >= 0 ? Colors.green : Colors.red, isNet: true),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  childCount: filtered.length,
+                ),
+              ),
+            ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatColumn(String label, double amount, Color color, {bool isNet = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey.shade500)),
+        const SizedBox(height: 4),
+        Text(
+          '\$${amount.toStringAsFixed(isNet ? 2 : 0)}',
+          style: TextStyle(
+            fontWeight: isNet ? FontWeight.w900 : FontWeight.bold,
+            fontSize: isNet ? 18 : 16,
+            color: isNet ? color : Colors.black87,
           ),
         ),
       ],
