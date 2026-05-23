@@ -61,7 +61,7 @@ class EmployeeDashboard extends StatelessWidget {
       body: user == null
           ? const Center(child: Text('Not authenticated.'))
           : StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance.collection('employees').doc(user.uid).snapshots(),
+              stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

@@ -50,30 +50,23 @@ class _SplashViewState extends State<SplashView>
           if (doc.exists && doc.data() != null) {
             role = doc.data()!['role'] ?? 'Owner';
           } else {
-            // Check employees collection if not found in users
-            final empDoc = await FirebaseFirestore.instance
-                .collection('employees')
-                .doc(user.uid)
-                .get();
-            
-            if (empDoc.exists && empDoc.data() != null) {
-              role = empDoc.data()!['role'] ?? 'Employee';
-            } else {
-              if (mounted) {
-                Navigator.pushReplacementNamed(context, '/home');
-              }
-              return;
+            if (mounted) {
+              Navigator.pushReplacementNamed(context, '/home');
             }
+            return;
           }
 
           if (mounted) {
-            if (role == 'Owner') {
+            if (role == 'User' || role == 'Owner') {
               Navigator.pushReplacementNamed(context, '/owner_dash');
             } else if (role == 'Manager') {
               Navigator.pushReplacementNamed(context, '/manager_dash');
             } else if (role == 'Employee' || role == 'Cashier') {
               // Assuming Cashier routes to employee_dash or add specifically if there's a cashier_dash
               Navigator.pushReplacementNamed(context, '/employee_dash');
+            } else if (role == 'Admin') {
+              // Usually accessed via web, but just in case
+              Navigator.pushReplacementNamed(context, '/admin_dashboard');
             } else {
               Navigator.pushReplacementNamed(context, '/home');
             }

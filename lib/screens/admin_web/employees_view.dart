@@ -66,7 +66,7 @@ class AdminEmployeesView extends StatelessWidget {
                 ],
               ),
               child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance.collection('employees').snapshots(),
+                stream: FirebaseFirestore.instance.collection('users').where('role', whereIn: ['Employee', 'Cashier', 'Manager']).snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -188,7 +188,7 @@ class AdminEmployeesView extends StatelessWidget {
                                   icon: const Icon(Icons.more_vert_rounded, color: Colors.grey),
                                   onSelected: (value) async {
                                     if (value == 'toggle_status') {
-                                      await FirebaseFirestore.instance.collection('employees').doc(doc.id).update({
+                                      await FirebaseFirestore.instance.collection('users').doc(doc.id).update({
                                         'is_active': !isActive,
                                       });
                                     } else if (value == 'delete') {
@@ -244,7 +244,7 @@ class AdminEmployeesView extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
-              await FirebaseFirestore.instance.collection('employees').doc(docId).delete();
+              await FirebaseFirestore.instance.collection('users').doc(docId).delete();
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('Delete'),
@@ -256,7 +256,7 @@ class AdminEmployeesView extends StatelessWidget {
 
   Future<void> _downloadJson(BuildContext context) async {
     try {
-      final snapshot = await FirebaseFirestore.instance.collection('employees').get();
+      final snapshot = await FirebaseFirestore.instance.collection('users').where('role', whereIn: ['Employee', 'Cashier', 'Manager']).get();
       final List<Map<String, dynamic>> jsonList = [];
       for (var doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;

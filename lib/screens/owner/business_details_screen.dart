@@ -8,6 +8,8 @@ import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 import 'stat_breakdown_screen.dart';
 import 'add_staff.dart';
+import 'edit_staff.dart';
+import 'edit_business.dart';
 
 class BusinessDetailsScreen extends StatefulWidget {
   final String businessId;
@@ -65,7 +67,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
 
       // 1. Fetch employees for this business
       final empQuery = await FirebaseFirestore.instance
-          .collection('employees')
+          .collection('users')
           .where('business_id', isEqualTo: widget.businessId)
           .get();
       
@@ -192,7 +194,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
     );
   }
 
-  Future<void> _generatePdf(int year, int month, List<Map<String, dynamic>> reports, double mSales, double mPurchases, double mPureExp, double mSalary, double mOther, double mExp) async {
+  Future<void> _generatePdf(int year, int month, List<Map<String, dynamic>> reports, double mSales, double mPurchases, double mPureExp, double mSalary, double mOther, double mExp, String cashiersText) async {
     final pdf = pw.Document();
     
     // Get user details
@@ -202,10 +204,10 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
     String phone = '';
     try {
       final doc = await FirebaseFirestore.instance.collection('users').doc(user?.uid).get();
-      if (doc.exists) {
-        final data = doc.data()!;
-        ownerName = data['name'] ?? ownerName;
-        phone = data['phone'] ?? phone;
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data() as Map<String, dynamic>;
+        ownerName = data['name']?.toString() ?? ownerName;
+        phone = data['phone']?.toString() ?? phone;
       }
     } catch (_) {}
 
@@ -229,30 +231,54 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
           return [
             // Heading
             pw.Center(
-              child: pw.Text('Monthly Business Report (${DateFormat('MMMM yyyy').format(DateTime(year, month))})', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              child: pw.Text('${widget.businessName} Monthly Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
             ),
-            pw.SizedBox(height: 20),
+            pw.SizedBox(height: 8),
+            pw.Center(
+              child: pw.Text(DateFormat('MMMM yyyy').format(DateTime(year, month)), style: pw.TextStyle(fontSize: 18, color: PdfColors.grey700)),
+            ),
+            pw.SizedBox(height: 30),
             
-            // Business Details
-            pw.Text('Business Name: ${widget.businessName}', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-            if (city.isNotEmpty || country.isNotEmpty) pw.Text('Location: $city, $country'),
-            pw.SizedBox(height: 10),
-
             // Owner Details
-            pw.Text('Owner Name: $ownerName'),
-            if (email.isNotEmpty) pw.Text('Email: $email'),
-            if (phone.isNotEmpty) pw.Text('Phone: $phone'),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('Owner Name: $ownerName', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                    pw.SizedBox(height: 4),
+                    pw.Text('Email: ${email.isNotEmpty ? email : 'N/A'}', style: const pw.TextStyle(fontSize: 12)),
+                    pw.SizedBox(height: 4),
+                    pw.Text('Phone: ${phone.isNotEmpty ? phone : 'N/A'}', style: const pw.TextStyle(fontSize: 12)),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text('Cashier(s):', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                    pw.SizedBox(height: 4),
+                    pw.Text(cashiersText, style: const pw.TextStyle(fontSize: 12)),
+                    if (city.isNotEmpty || country.isNotEmpty) ...[
+                      pw.SizedBox(height: 8),
+                      pw.Text('Location: $city, $country', style: const pw.TextStyle(fontSize: 12)),
+                    ],
+                  ],
+                ),
+              ],
+            ),
             pw.SizedBox(height: 30),
 
             // Table
             pw.TableHelper.fromTextArray(
-              headers: ['Date', 'Sales', 'Purchases', 'Exp', 'Salary', 'Other', 'Total Exp', 'Profit'],
+              headers: ['Date', 'Cashier', 'Sales', 'Purchases', 'Exp', 'Salary', 'Other', 'Total Exp', 'Profit'],
               data: [
                 ...reports.map((row) {
                   final d = row['date'] as DateTime;
                   final dateStr = DateFormat('MMM dd, yyyy').format(d);
                   return [
                     dateStr,
+                    row['cashier_name'] ?? 'Unknown',
                     row['sale'].toStringAsFixed(2),
                     row['purchase'].toStringAsFixed(2),
                     row['expense'].toStringAsFixed(2),
@@ -265,6 +291,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                 // Total Row
                 [
                   'TOTAL',
+                  '',
                   mSales.toStringAsFixed(2),
                   mPurchases.toStringAsFixed(2),
                   mPureExp.toStringAsFixed(2),
@@ -331,6 +358,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
 
           reports.add({
             'date': docDate,
+            'cashier_id': data['cashier_id'] ?? '',
             'sale': sale,
             'purchase': purchase,
             'expense': expense,
@@ -344,6 +372,35 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
 
       reports.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
 
+      final cashierIds = reports.map((r) => r['cashier_id'].toString()).where((id) => id.isNotEmpty).toSet();
+      List<String> cashierNamesList = [];
+      for (var id in cashierIds) {
+        bool found = false;
+        try {
+          final uDoc = await FirebaseFirestore.instance.collection('users').doc(id).get();
+          if (uDoc.exists) {
+            found = true;
+            final name = uDoc.data()?['name'] ?? 'Unknown';
+            cashierNamesList.add(name);
+            for (var r in reports) {
+              if (r['cashier_id'] == id) r['cashier_name'] = name;
+            }
+          }
+        } catch (_) {}
+        
+        if (!found) {
+          cashierNamesList.add(id);
+          for (var r in reports) {
+            if (r['cashier_id'] == id) r['cashier_name'] = id;
+          }
+        }
+      }
+      String cashiersText = cashierNamesList.isEmpty ? 'N/A' : cashierNamesList.join(', ');
+
+      for (var r in reports) {
+        if (!r.containsKey('cashier_name')) r['cashier_name'] = 'N/A';
+      }
+
       if (mounted) Navigator.pop(context); // close loading
 
       if (reports.isEmpty) {
@@ -353,7 +410,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
         return;
       }
 
-      await _generatePdf(year, month, reports, mSales, mPurchases, mPureExp, mSalary, mOther, mExp);
+      await _generatePdf(year, month, reports, mSales, mPurchases, mPureExp, mSalary, mOther, mExp, cashiersText);
 
     } catch (e) {
       if (mounted) {
@@ -469,7 +526,15 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) async {
-              if (value == 'toggle_status') {
+              if (value == 'edit_business') {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => EditBusinessScreen(businessId: widget.businessId)),
+                );
+                if (result == true) {
+                  _fetchBusinessData();
+                }
+              } else if (value == 'toggle_status') {
                 final actionText = _isActive ? 'Deactivate' : 'Activate';
                 final confirm = await showDialog<bool>(
                   context: context,
@@ -507,6 +572,16 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
               }
             },
             itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'edit_business',
+                child: Row(
+                  children: const [
+                    Icon(Icons.edit, color: Colors.blue, size: 18),
+                    SizedBox(width: 8),
+                    Text('Edit Details'),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'toggle_status',
                 child: Row(
@@ -1022,7 +1097,7 @@ class BusinessEmployeesScreen extends StatelessWidget {
         color: Colors.grey.shade50,
         child: StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
-              .collection('employees')
+              .collection('users')
               .where('business_id', isEqualTo: businessId)
               .snapshots(),
           builder: (context, snapshot) {
@@ -1081,8 +1156,21 @@ class BusinessEmployeesScreen extends StatelessWidget {
                   elevation: 2,
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditStaffScreen(
+                            staffId: docs[index].id,
+                            staffData: data,
+                          ),
+                        ),
+                      );
+                    },
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.all(16),
                     leading: CircleAvatar(
                       backgroundColor: roleColor.withValues(alpha: 0.1),
                       radius: 28,
@@ -1094,7 +1182,12 @@ class BusinessEmployeesScreen extends StatelessWidget {
                     title: Row(
                       children: [
                         Expanded(
-                          child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                          child: Text(
+                            name, 
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)
+                          ),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1136,8 +1229,33 @@ class BusinessEmployeesScreen extends StatelessWidget {
                         ),
                       ],
                     ),
+                    trailing: PopupMenuButton<String>(
+                      icon: Icon(Icons.more_vert, color: Colors.grey.shade400),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      onSelected: (val) async {
+                        if (val == 'toggle_status') {
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(docs[index].id)
+                              .update({'is_active': !isActive});
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'toggle_status',
+                          child: Row(
+                            children: [
+                              Icon(isActive ? Icons.block : Icons.check_circle, size: 18, color: isActive ? Colors.orange : Colors.green),
+                              const SizedBox(width: 12),
+                              Text(isActive ? 'Suspend Staff' : 'Activate Staff', style: const TextStyle(fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                );
+                ),
+              );
               },
             );
           },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'add_staff.dart';
+import 'edit_staff.dart';
 
 class StaffView extends StatefulWidget {
   const StaffView({super.key});
@@ -77,7 +78,7 @@ class _StaffViewState extends State<StaffView> {
                       const SizedBox(height: 16),
                       StreamBuilder<QuerySnapshot>(
                         stream: FirebaseFirestore.instance
-                            .collection('employees')
+                            .collection('users')
                             .where('owner_id', isEqualTo: user.uid)
                             .snapshots(),
                         builder: (context, snapshot) {
@@ -360,7 +361,7 @@ class _StaffViewState extends State<StaffView> {
 
   Widget _buildEmployeeList(String ownerId, {String? businessId}) {
     Query query = FirebaseFirestore.instance
-        .collection('employees')
+        .collection('users')
         .where('owner_id', isEqualTo: ownerId);
     
     if (businessId != null) {
@@ -452,8 +453,21 @@ class _StaffViewState extends State<StaffView> {
               ),
               child: Material(
                 color: Colors.transparent,
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EditStaffScreen(
+                          staffId: docs[index].id,
+                          staffData: data,
+                        ),
+                      ),
+                    );
+                  },
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
                   leading: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -477,8 +491,14 @@ class _StaffViewState extends State<StaffView> {
                   title: Row(
                     children: [
                       Expanded(
-                        child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87)),
+                        child: Text(
+                          name, 
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black87)
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
@@ -564,14 +584,9 @@ class _StaffViewState extends State<StaffView> {
                     onSelected: (val) async {
                       if (val == 'toggle_status') {
                         await FirebaseFirestore.instance
-                            .collection('employees')
+                            .collection('users')
                             .doc(docs[index].id)
                             .update({'is_active': !isActive});
-                      } else if (val == 'delete') {
-                        await FirebaseFirestore.instance
-                            .collection('employees')
-                            .doc(docs[index].id)
-                            .delete();
                       }
                     },
                     itemBuilder: (context) => [
@@ -585,22 +600,13 @@ class _StaffViewState extends State<StaffView> {
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                            SizedBox(width: 12),
-                            Text('Delete Account', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
                   ),
                 ),
               ),
-            );
-          },
+            ),
+          );
+        },
         );
       },
     );

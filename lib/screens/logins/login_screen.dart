@@ -157,7 +157,7 @@ class _LoginViewState extends State<LoginView> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.blue.shade400,
+        backgroundColor: const Color(0xFF0D47A1),
         title: Text('${widget.role} Login'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
@@ -302,7 +302,7 @@ class _LoginViewState extends State<LoginView> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade400,
+                    backgroundColor: const Color(0xFF0D47A1),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -40,23 +41,15 @@ class _SettingsViewState extends State<SettingsView> {
     setState(() => _isPassLoading = true);
 
     try {
-      final snapshot = await FirebaseFirestore.instance.collection('admin_credentials').get();
-      if (snapshot.docs.isEmpty) throw Exception("Admin credentials not found.");
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception("No user logged in.");
 
-      final docRef = snapshot.docs.first.reference;
-      final currentDbPassword = snapshot.docs.first.data()['password']?.toString() ?? '';
+      // Verify old password by re-authenticating
+      AuthCredential credential = EmailAuthProvider.credential(email: user.email!, password: _oldPasswordController.text);
+      await user.reauthenticateWithCredential(credential);
 
-      if (_oldPasswordController.text != currentDbPassword) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Incorrect current password.'), backgroundColor: Colors.red),
-          );
-        }
-        setState(() => _isPassLoading = false);
-        return;
-      }
-
-      await docRef.update({'password': _newPasswordController.text});
+      // Update password
+      await user.updatePassword(_newPasswordController.text);
 
       if (mounted) {
         _oldPasswordController.clear();
@@ -82,11 +75,15 @@ class _SettingsViewState extends State<SettingsView> {
     setState(() => _isUserLoading = true);
 
     try {
-      final snapshot = await FirebaseFirestore.instance.collection('admin_credentials').get();
-      if (snapshot.docs.isEmpty) throw Exception("Admin credentials not found.");
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception("No user logged in.");
 
-      final docRef = snapshot.docs.first.reference;
-      final currentDbUsername = snapshot.docs.first.data()['username']?.toString() ?? '';
+      final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final docSnap = await docRef.get();
+      
+      if (!docSnap.exists) throw Exception("User document not found.");
+      
+      final currentDbUsername = docSnap.data()?['name']?.toString() ?? '';
 
       if (_oldUsernameController.text.trim() != currentDbUsername) {
         if (mounted) {
@@ -98,7 +95,7 @@ class _SettingsViewState extends State<SettingsView> {
         return;
       }
 
-      await docRef.update({'username': _newUsernameController.text.trim()});
+      await docRef.update({'name': _newUsernameController.text.trim()});
 
       if (mounted) {
         _oldUsernameController.clear();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/location_service.dart';
+import '../../utils/formatters.dart';
 
 class RegisterView extends StatefulWidget {
   const RegisterView({super.key});
@@ -54,7 +55,8 @@ class _RegistrationPageState extends State<RegisterView> {
       );
 
       // Step 2: Update display name in Auth
-      await credential.user!.updateDisplayName(_nameController.text.trim());
+      final formattedName = Formatters.capitalizeWords(_nameController.text);
+      await credential.user!.updateDisplayName(formattedName);
 
       // Step 3: Fetch Location Data
       final locData = await LocationService.fetchIpAndLocation();
@@ -65,7 +67,7 @@ class _RegistrationPageState extends State<RegisterView> {
           .doc(credential.user!.uid)
           .set({
         'uid': credential.user!.uid,
-        'name': _nameController.text.trim(),
+        'name': formattedName,
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
         'role': 'Owner',

@@ -101,7 +101,7 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
 
       final existingReports = await FirebaseFirestore.instance
           .collection('daily_reports')
-          .where('cashier_id', isEqualTo: widget.cashierId)
+          .where('business_id', isEqualTo: widget.businessId)
           .get();
 
       bool alreadySubmitted = false;
@@ -120,7 +120,7 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('A report for this date has already been submitted!'),
+              content: Text('A report for this business already exists for this date!'),
               backgroundColor: Colors.orange,
               duration: Duration(seconds: 3),
             ),

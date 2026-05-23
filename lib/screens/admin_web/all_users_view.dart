@@ -11,11 +11,8 @@ class AllUsersLocationView extends StatefulWidget {
 
 class _AllUsersLocationViewState extends State<AllUsersLocationView> {
   List<Map<String, dynamic>> _usersDocs = [];
-  List<Map<String, dynamic>> _empDocs = [];
   bool _loading = true;
-
   StreamSubscription? _usersSub;
-  StreamSubscription? _empSub;
 
   @override
   void initState() {
@@ -28,50 +25,18 @@ class _AllUsersLocationViewState extends State<AllUsersLocationView> {
       }).toList();
       _updateList();
     });
-
-    _empSub = FirebaseFirestore.instance.collection('employees').snapshots().listen((snap) {
-      _empDocs = snap.docs.map((d) {
-        var data = d.data();
-        data['uid'] = d.id;
-        return data;
-      }).toList();
-      _updateList();
-    });
   }
 
   @override
   void dispose() {
     _usersSub?.cancel();
-    _empSub?.cancel();
     super.dispose();
   }
 
   List<Map<String, dynamic>> _allUsers = [];
 
   void _updateList() {
-    final Map<String, Map<String, dynamic>> merged = {};
-    
-    // Add all users
-    for (var u in _usersDocs) {
-      final email = u['email'] ?? u['uid']; // Use email as unique key, fallback to uid
-      if (email.toString().isNotEmpty) {
-        merged[email] = u;
-      }
-    }
-    
-    // Add all employees, overwriting if duplicate (since employees might have updated roles)
-    for (var e in _empDocs) {
-      final email = e['email'] ?? e['uid'];
-      if (email.toString().isNotEmpty) {
-        // Ensure role exists
-        if (!e.containsKey('role') || e['role'] == null) {
-          e['role'] = 'Employee';
-        }
-        merged[email] = e;
-      }
-    }
-
-    _allUsers = merged.values.toList();
+    _allUsers = List.from(_usersDocs);
     
     // Sort by name for consistency since createdAt formats might differ
     _allUsers.sort((a, b) => (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));

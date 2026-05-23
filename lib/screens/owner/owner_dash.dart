@@ -22,12 +22,7 @@ class _OwnerViewState extends State<OwnerView> {
     const ReportsTab(),
     const StaffView(),
     HomeDashboardTab(onNavigate: _onItemTapped),
-    const Center(
-      child: Text(
-        'Documents',
-        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-      ),
-    ),
+    const MyShopsScreen(),
     const OwnerProfileTab(),
   ];
 
@@ -216,10 +211,7 @@ class _OwnerViewState extends State<OwnerView> {
                 title: const Text('My Shops', style: TextStyle(fontWeight: FontWeight.w600)),
                 onTap: () {
                   Navigator.pop(context); // Close drawer
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const MyShopsScreen()),
-                  );
+                  _onItemTapped(3);
                 },
               ),
             ),
@@ -270,8 +262,8 @@ class _OwnerViewState extends State<OwnerView> {
               padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 2.0),
               child: ListTile(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                leading: const Icon(Icons.description),
-                title: const Text('Documents'),
+                leading: const Icon(Icons.store),
+                title: const Text('My Shops'),
                 selected: _selectedIndex == 3,
                 selectedTileColor: Colors.blue.withOpacity(0.1),
                 onTap: () {
@@ -341,8 +333,8 @@ class _OwnerViewState extends State<OwnerView> {
                 label: 'Home',
               ),
               BottomNavigationBarItem(
-                icon: Icon(_selectedIndex == 3 ? Icons.description : Icons.description_outlined),
-                label: 'Docs',
+                icon: Icon(_selectedIndex == 3 ? Icons.store : Icons.store_outlined),
+                label: 'Shops',
               ),
               BottomNavigationBarItem(
                 icon: Icon(_selectedIndex == 4 ? Icons.person : Icons.person_outline),
@@ -369,7 +361,7 @@ class MyShopsScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
@@ -416,14 +408,25 @@ class MyShopsScreen extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             slivers: [
               SliverAppBar(
-                expandedHeight: 200.0,
+                expandedHeight: 180.0,
                 pinned: true,
+                automaticallyImplyLeading: false, // Don't show back button
                 backgroundColor: const Color(0xFF0D47A1),
                 foregroundColor: Colors.white,
                 elevation: 0,
+                shape: const ContinuousRectangleBorder(
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(60),
+                    bottomRight: Radius.circular(60),
+                  ),
+                ),
                 flexibleSpace: FlexibleSpaceBar(
                   background: Container(
                     decoration: const BoxDecoration(
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(30),
+                        bottomRight: Radius.circular(30),
+                      ),
                       gradient: LinearGradient(
                         colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
                         begin: Alignment.topLeft,

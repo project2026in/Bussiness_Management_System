@@ -58,7 +58,7 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
       }
 
       // 2. Fetch employees and filter locally
-      final empQuery = await FirebaseFirestore.instance.collection('employees').get();
+      final empQuery = await FirebaseFirestore.instance.collection('users').where('role', whereIn: ['Employee', 'Cashier', 'Manager']).get();
       final userEmployees = empQuery.docs.where((d) {
         final data = d.data();
         final oId = data['owner_id'] ?? data['ownerId'] ?? data['owner'];
@@ -200,7 +200,9 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
                       children: [
                         InkWell(
                           onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const MyShopsScreen()));
+                            if (widget.onNavigate != null) {
+                              widget.onNavigate!(3); // Navigate to Shops Tab
+                            }
                           },
                           child: _buildHeaderStat('Businesses', '$_businessCount', Icons.storefront),
                         ),

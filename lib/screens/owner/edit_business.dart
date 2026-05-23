@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../../models/business_model.dart';
 import '../../utils/formatters.dart';
 
-class AddBusinessScreen extends StatefulWidget {
-  const AddBusinessScreen({super.key});
+class EditBusinessScreen extends StatefulWidget {
+  final String businessId;
+
+  const EditBusinessScreen({super.key, required this.businessId});
 
   @override
-  State<AddBusinessScreen> createState() => _AddBusinessScreenState();
+  State<EditBusinessScreen> createState() => _EditBusinessScreenState();
 }
 
-class _AddBusinessScreenState extends State<AddBusinessScreen> {
+class _EditBusinessScreenState extends State<EditBusinessScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
@@ -21,55 +21,31 @@ class _AddBusinessScreenState extends State<AddBusinessScreen> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
 
-  bool _isLoading = false;
+  bool _isLoading = true;
+  bool _isSaving = false;
 
   @override
-  void dispose() {
-    _nameController.dispose();
-    _countryController.dispose();
-    _cityController.dispose();
-    _addressController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _fetchBusinessData();
   }
 
-  void _saveBusiness() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
+  Future<void> _fetchBusinessData() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception("User not logged in");
-
-      final business = BusinessModel(
-        ownerId: user.uid,
-        name: Formatters.capitalizeWords(_nameController.text),
-        country: Formatters.capitalizeWords(_countryController.text),
-        city: Formatters.capitalizeWords(_cityController.text),
-        address: _addressController.text.trim(),
-        phone: _phoneController.text.trim(),
-        email: _emailController.text.trim(),
-        createdAt: DateTime.now(),
-      );
-
-      await FirebaseFirestore.instance
-          .collection('businesses')
-          .add(business.toJson());
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Business added successfully!'), backgroundColor: Colors.green),
-        );
-        Navigator.pop(context);
+      final doc = await FirebaseFirestore.instance.collection('businesses').doc(widget.businessId).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data() as Map<String, dynamic>;
+        _nameController.text = data['name']?.toString() ?? '';
+        _countryController.text = data['country']?.toString() ?? '';
+        _cityController.text = data['city']?.toString() ?? '';
+        _addressController.text = data['address']?.toString() ?? '';
+        _phoneController.text = data['phone']?.toString() ?? '';
+        _emailController.text = data['email']?.toString() ?? '';
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding business: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error loading business: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -82,18 +58,69 @@ class _AddBusinessScreenState extends State<AddBusinessScreen> {
   }
 
   @override
+  void dispose() {
+    _nameController.dispose();
+    _countryController.dispose();
+    _cityController.dispose();
+    _addressController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  void _updateBusiness() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await FirebaseFirestore.instance.collection('businesses').doc(widget.businessId).update({
+        'name': Formatters.capitalizeWords(_nameController.text),
+        'country': Formatters.capitalizeWords(_countryController.text),
+        'city': Formatters.capitalizeWords(_cityController.text),
+        'address': _addressController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'email': _emailController.text.trim(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Business updated successfully!'), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context, true); // Return true to indicate success
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating business: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).appBarTheme.backgroundColor ?? Colors.blue.shade500;
     
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('Add Business', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('Edit Business', style: TextStyle(fontWeight: FontWeight.w600)),
         backgroundColor: const Color(0xFF0D47A1),
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
         child: Column(
           children: [
             // Header Section
@@ -123,7 +150,7 @@ class _AddBusinessScreenState extends State<AddBusinessScreen> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'New Business Details',
+                  'Edit Business Details',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -132,7 +159,7 @@ class _AddBusinessScreenState extends State<AddBusinessScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Enter the information below',
+                  'Update the information below',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.blue.shade100,
@@ -222,7 +249,7 @@ class _AddBusinessScreenState extends State<AddBusinessScreen> {
                         SizedBox(
                           height: 55,
                           child: ElevatedButton(
-                            onPressed: _isLoading ? null : _saveBusiness,
+                            onPressed: _isSaving ? null : _updateBusiness,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: primaryColor,
                               foregroundColor: Colors.white,
@@ -231,13 +258,13 @@ class _AddBusinessScreenState extends State<AddBusinessScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: _isLoading 
+                            child: _isSaving 
                               ? const SizedBox(
                                   height: 24,
                                   width: 24,
                                   child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                                 )
-                              : const Text('Save Business', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              : const Text('Save Changes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],

@@ -3,7 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../../services/location_service.dart';
-import '../../models/employee_model.dart';
+import '../../models/user_model.dart';
+import '../../utils/formatters.dart';
 
 class AddStaffScreen extends StatefulWidget {
   const AddStaffScreen({super.key});
@@ -81,12 +82,13 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       // Fetch location
       final locData = await LocationService.fetchIpAndLocation();
 
-      // 2. Save the staff member to the 'employees' collection using the MAIN app instance
-      final employee = EmployeeModel(
+      // 2. Save the staff member to the 'users' collection using the MAIN app instance
+      final employee = UserModel(
         id: credential.user!.uid,
+        password: _passwordController.text, // Normally don't store plain text, but keeping it to match the signature
         ownerId: owner.uid,
         businessId: _selectedBusinessId!,
-        name: _nameController.text.trim(),
+        name: Formatters.capitalizeWords(_nameController.text),
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
         role: _selectedRole,
@@ -98,7 +100,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       );
 
       await FirebaseFirestore.instance
-          .collection('employees')
+          .collection('users')
           .doc(employee.id)
           .set(employee.toJson());
 
@@ -134,17 +136,22 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Add Staff Member', style: TextStyle(fontWeight: FontWeight.w600)),
-        backgroundColor: primaryColor,
+        backgroundColor: const Color(0xFF0D47A1),
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: Column(
-        children: [
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
           Container(
             width: double.infinity,
-            decoration: BoxDecoration(
-              color: primaryColor,
-              borderRadius: const BorderRadius.only(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
               ),
@@ -169,10 +176,9 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             ),
           ),
           
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20.0),
-              child: Card(
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Card(
                 elevation: 4,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 color: Colors.white,
@@ -320,8 +326,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

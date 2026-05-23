@@ -18,6 +18,7 @@ class AdminReportsView extends StatefulWidget {
 class _AdminReportsViewState extends State<AdminReportsView> {
   Map<String, String> _businessMap = {};
   Map<String, String> _ownerMap = {}; // mapping ownerId to ownerName
+  Map<String, Map<String, String>> _ownerDetailsMap = {}; // mapping businessId to owner details
   Map<String, String> _userIdToName = {};
   Map<String, List<Map<String, String>>> _userBusinesses = {};
   bool _isLoading = true;
@@ -48,22 +49,31 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       // Fetch users (owners)
       final usersQuery = await FirebaseFirestore.instance.collection('users').get();
       Map<String, String> uMap = {};
+      Map<String, Map<String, String>> uDetailsMap = {};
       for (var doc in usersQuery.docs) {
         final data = doc.data();
-        uMap[doc.id] = data['name'] ?? 'Unknown User';
+        uMap[doc.id] = data['name']?.toString() ?? 'Unknown User';
+        uDetailsMap[doc.id] = {
+          'name': data['name']?.toString() ?? 'Unknown User',
+          'email': data['email']?.toString() ?? 'N/A',
+          'phone': data['phone']?.toString() ?? 'N/A',
+        };
       }
 
       // Create business -> owner name mapping
       Map<String, String> finalOwnerMap = {};
+      Map<String, Map<String, String>> finalOwnerDetailsMap = {};
       Map<String, List<Map<String, String>>> userBuses = {};
 
       for (var bid in bMap.keys) {
         final oId = bOwnerMap[bid];
-        if (oId != null && uMap.containsKey(oId)) {
-          finalOwnerMap[bid] = uMap[oId]!;
-          userBuses.putIfAbsent(oId, () => []).add({'id': bid, 'name': bMap[bid]!});
+        if (oId != null && uMap.containsKey(oId) && uDetailsMap.containsKey(oId)) {
+          finalOwnerMap[bid] = uMap[oId] ?? 'Unknown Owner';
+          finalOwnerDetailsMap[bid] = uDetailsMap[oId] ?? {'name': 'Unknown Owner', 'email': 'N/A', 'phone': 'N/A'};
+          userBuses.putIfAbsent(oId, () => []).add({'id': bid, 'name': bMap[bid] ?? 'Unknown Business'});
         } else {
           finalOwnerMap[bid] = 'Unknown Owner';
+          finalOwnerDetailsMap[bid] = {'name': 'Unknown Owner', 'email': 'N/A', 'phone': 'N/A'};
         }
       }
 
@@ -71,6 +81,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         setState(() {
           _businessMap = bMap;
           _ownerMap = finalOwnerMap;
+          _ownerDetailsMap = finalOwnerDetailsMap;
           _userIdToName = uMap;
           _userBusinesses = userBuses;
           _isLoading = false;
@@ -196,8 +207,92 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     }
   }
 
-  Future<void> _generatePdf(int year, int month, List<Map<String, dynamic>> reports, double mSales, double mPurchases, double mPureExp, double mSalary, double mOther, double mExp, String businessName, String ownerName) async {
+  Future<void> _deleteAllReports() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete All Reports', style: TextStyle(color: Colors.red)),
+        content: const Text('Are you sure you want to permanently delete ALL financial reports from the database? This action is irreversible.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context, true), 
+            child: const Text('DELETE ALL')
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    bool isDialogShowing = true;
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      ).then((_) => isDialogShowing = false);
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('daily_reports').get();
+      final batch = FirebaseFirestore.instance.batch();
+      for (var doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      if (mounted) {
+        if (isDialogShowing) Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All reports successfully deleted.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        if (isDialogShowing) Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error deleting reports: $e')));
+      }
+    }
+  }
+
+  Future<void> _generatePdf(int year, int month, List<Map<String, dynamic>> reports, double mSales, double mPurchases, double mPureExp, double mSalary, double mOther, double mExp, String cashiersText, String businessId, String businessName) async {
     final pdf = pw.Document();
+    
+    // Get user details
+    String ownerName = 'Unknown Owner';
+    String email = 'N/A';
+    String phone = 'N/A';
+    try {
+      // Find the owner of this business
+      String? oId;
+      final bDoc = await FirebaseFirestore.instance.collection('businesses').doc(businessId).get();
+      if (bDoc.exists && bDoc.data() != null) {
+        final bData = bDoc.data() as Map<String, dynamic>;
+        oId = bData['owner_id']?.toString() ?? bData['ownerId']?.toString() ?? bData['owner']?.toString();
+      }
+
+      if (oId != null) {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(oId).get();
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data() as Map<String, dynamic>;
+          ownerName = data['name']?.toString() ?? ownerName;
+          email = data['email']?.toString() ?? email;
+          phone = data['phone']?.toString() ?? phone;
+        }
+      }
+    } catch (_) {}
+
+    // Get business details
+    String city = '';
+    String country = '';
+    try {
+      final bDoc = await FirebaseFirestore.instance.collection('businesses').doc(businessId).get();
+      if (bDoc.exists && bDoc.data() != null) {
+        final data = bDoc.data() as Map<String, dynamic>;
+        city = data['city']?.toString() ?? '';
+        country = data['country']?.toString() ?? '';
+      }
+    } catch (_) {}
 
     pdf.addPage(
       pw.MultiPage(
@@ -207,27 +302,54 @@ class _AdminReportsViewState extends State<AdminReportsView> {
           return [
             // Heading
             pw.Center(
-              child: pw.Text('Monthly Business Report (${DateFormat('MMMM yyyy').format(DateTime(year, month))})', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              child: pw.Text('$businessName Monthly Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
             ),
-            pw.SizedBox(height: 20),
+            pw.SizedBox(height: 8),
+            pw.Center(
+              child: pw.Text(DateFormat('MMMM yyyy').format(DateTime(year, month)), style: pw.TextStyle(fontSize: 18, color: PdfColors.grey700)),
+            ),
+            pw.SizedBox(height: 30),
             
-            // Business Details
-            pw.Text('Business Name: $businessName', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 10),
-
             // Owner Details
-            pw.Text('Owner Name: $ownerName'),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('Owner Name: $ownerName', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                    pw.SizedBox(height: 4),
+                    pw.Text('Email: $email', style: const pw.TextStyle(fontSize: 12)),
+                    pw.SizedBox(height: 4),
+                    pw.Text('Phone: $phone', style: const pw.TextStyle(fontSize: 12)),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text('Cashier(s):', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                    pw.SizedBox(height: 4),
+                    pw.Text(cashiersText, style: const pw.TextStyle(fontSize: 12)),
+                    if (city.isNotEmpty || country.isNotEmpty) ...[
+                      pw.SizedBox(height: 8),
+                      pw.Text('Location: $city, $country', style: const pw.TextStyle(fontSize: 12)),
+                    ],
+                  ],
+                ),
+              ],
+            ),
             pw.SizedBox(height: 30),
 
             // Table
             pw.TableHelper.fromTextArray(
-              headers: ['Date', 'Sales', 'Purchases', 'Exp', 'Salary', 'Other', 'Total Exp', 'Profit'],
+              headers: ['Date', 'Cashier', 'Sales', 'Purchases', 'Exp', 'Salary', 'Other', 'Total Exp', 'Profit'],
               data: [
                 ...reports.map((row) {
                   final d = row['date'] as DateTime;
                   final dateStr = DateFormat('MMM dd, yyyy').format(d);
                   return [
                     dateStr,
+                    row['cashier_name']?.toString() ?? 'Unknown',
                     row['sale'].toStringAsFixed(2),
                     row['purchase'].toStringAsFixed(2),
                     row['expense'].toStringAsFixed(2),
@@ -240,6 +362,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                 // Total Row
                 [
                   'TOTAL',
+                  '',
                   mSales.toStringAsFixed(2),
                   mPurchases.toStringAsFixed(2),
                   mPureExp.toStringAsFixed(2),
@@ -273,12 +396,11 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   }
 
   Future<void> _downloadReportForAdmin(String businessId, int year, int month) async {
-    bool isDialogShowing = true;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
-    ).then((_) => isDialogShowing = false);
+    );
 
     try {
       final reportsQuery = await FirebaseFirestore.instance
@@ -314,6 +436,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
           reports.add({
             'date': docDate,
+            'cashier_id': data['cashier_id']?.toString() ?? '',
             'sale': sale,
             'purchase': purchase,
             'expense': expense,
@@ -327,10 +450,37 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
       reports.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
 
-      if (isDialogShowing && mounted) {
-        Navigator.pop(context); // close loading
-        isDialogShowing = false;
+      final cashierIds = reports.map((r) => r['cashier_id']?.toString() ?? '').where((id) => id.isNotEmpty).toSet();
+      List<String> cashierNamesList = [];
+      for (var id in cashierIds) {
+        bool found = false;
+        try {
+          final uDoc = await FirebaseFirestore.instance.collection('users').doc(id).get();
+          if (uDoc.exists && uDoc.data() != null) {
+            found = true;
+            final data = uDoc.data() as Map<String, dynamic>;
+            final name = data['name']?.toString() ?? 'Unknown';
+            cashierNamesList.add(name);
+            for (var r in reports) {
+              if (r['cashier_id'] == id) r['cashier_name'] = name;
+            }
+          }
+        } catch (_) {}
+        
+        if (!found) {
+          cashierNamesList.add(id);
+          for (var r in reports) {
+            if (r['cashier_id'] == id) r['cashier_name'] = id;
+          }
+        }
       }
+      String cashiersText = cashierNamesList.isEmpty ? 'N/A' : cashierNamesList.join(', ');
+
+      for (var r in reports) {
+        if (!r.containsKey('cashier_name')) r['cashier_name'] = 'N/A';
+      }
+
+      if (mounted) Navigator.pop(context); // close loading
 
       if (reports.isEmpty) {
         if (mounted) {
@@ -340,15 +490,14 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       }
 
       final businessName = _businessMap[businessId] ?? 'Unknown Business';
-      final ownerName = _ownerMap[businessId] ?? 'Unknown Owner';
 
-      await _generatePdf(year, month, reports, mSales, mPurchases, mPureExp, mSalary, mOther, mExp, businessName, ownerName);
+      await _generatePdf(year, month, reports, mSales, mPurchases, mPureExp, mSalary, mOther, mExp, cashiersText, businessId, businessName);
 
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint('Error generating report: $e');
+      debugPrint('Stack trace: $s');
       if (mounted) {
-        if (isDialogShowing) {
-          Navigator.pop(context);
-        }
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error generating report: $e')));
       }
     }
@@ -639,6 +788,18 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                 ),
               const Spacer(),
               TextButton.icon(
+                onPressed: _deleteAllReports,
+                icon: const Icon(Icons.delete_sweep, size: 18),
+                label: const Text('Delete All'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  backgroundColor: Colors.red.shade50,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(width: 16),
+              TextButton.icon(
                 onPressed: _exportJsonData,
                 icon: const Icon(Icons.download_for_offline, size: 18),
                 label: const Text('Export JSON'),
@@ -763,10 +924,12 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                           DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Business', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Owner', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Cashier', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Income', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Expenses', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Net', style: TextStyle(fontWeight: FontWeight.bold))),
                           DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: filteredDocs.map((doc) {
                           final data = doc.data() as Map<String, dynamic>;
@@ -775,6 +938,8 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                           final businessId = data['business_id'] ?? '';
                           final businessName = _businessMap[businessId] ?? 'Unknown';
                           final ownerName = _ownerMap[businessId] ?? 'Unknown';
+                          final cashierId = data['cashier_id']?.toString() ?? '';
+                          final cashierName = cashierId.isNotEmpty ? (_userIdToName[cashierId] ?? cashierId) : 'N/A';
 
                           final income = (data['sale'] as num?)?.toDouble() ?? 0.0;
                           final purchase = (data['purchase'] as num?)?.toDouble() ?? 0.0;
@@ -791,6 +956,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                               DataCell(Text(dateStr, style: const TextStyle(fontWeight: FontWeight.w500))),
                               DataCell(Text(businessName, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0D47A1)))),
                               DataCell(Text(ownerName)),
+                              DataCell(Text(cashierName, style: const TextStyle(color: Colors.blueGrey, fontStyle: FontStyle.italic))),
                               DataCell(Text('\$${income.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green))),
                               DataCell(Text('\$${totalExpense.toStringAsFixed(2)}', style: const TextStyle(color: Colors.red))),
                               DataCell(Text('\$${profit.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, color: statusColor))),
@@ -805,6 +971,42 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                                     profit >= 0 ? 'PROFIT' : 'LOSS',
                                     style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
                                   ),
+                                ),
+                              ),
+                              DataCell(
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                  tooltip: 'Delete Report',
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text('Delete Report'),
+                                        content: const Text('Are you sure you want to permanently delete this financial report?'),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                            onPressed: () => Navigator.pop(context, true), 
+                                            child: const Text('Delete')
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    
+                                    if (confirm == true) {
+                                      try {
+                                        await FirebaseFirestore.instance.collection('daily_reports').doc(doc.id).delete();
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report deleted successfully.')));
+                                        }
+                                      } catch (e) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error deleting report: $e')));
+                                        }
+                                      }
+                                    }
+                                  },
                                 ),
                               ),
                             ],

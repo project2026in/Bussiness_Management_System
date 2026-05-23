@@ -68,7 +68,7 @@ class AdminUsersView extends StatelessWidget {
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('users')
-                    .orderBy('createdAt', descending: true)
+                    .where('role', isEqualTo: 'Owner')
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -294,7 +294,7 @@ class AdminUsersView extends StatelessWidget {
 
   Future<void> _downloadJson(BuildContext context) async {
     try {
-      final snapshot = await FirebaseFirestore.instance.collection('users').get();
+      final snapshot = await FirebaseFirestore.instance.collection('users').where('role', isEqualTo: 'Owner').get();
       final List<Map<String, dynamic>> jsonList = [];
       for (var doc in snapshot.docs) {
         final data = doc.data();

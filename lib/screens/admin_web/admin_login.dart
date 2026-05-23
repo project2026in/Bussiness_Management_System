@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/location_service.dart';
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
 
@@ -21,49 +22,42 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     });
 
     try {
-      // Dynamic Foolproof Scan
-      final snapshot = await FirebaseFirestore.instance
-          .collection('admin_credentials')
-          .get();
+      final inputUser = _idController.text.trim();
+      final inputPass = _passController.text.trim();
 
-      if (snapshot.docs.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _errorMessage = 'The admin_credentials collection is completely empty or missing in newproject-52066!';
-            _isLoading = false;
-          });
-        }
+      if (inputUser.isEmpty || inputPass.isEmpty) {
+        setState(() {
+          _errorMessage = 'Please enter email and password.';
+          _isLoading = false;
+        });
         return;
       }
 
-      bool foundMatch = false;
-      String lastChecked = '';
+      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: inputUser,
+        password: inputPass,
+      );
 
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        
-        // Convert to string and trim spaces to prevent ANY typos or Number vs String issues!
-        final dbUser = data['username']?.toString().trim() ?? '';
-        final dbPass = data['password']?.toString().trim() ?? '';
-        final inputUser = _idController.text.trim();
-        final inputPass = _passController.text.trim();
+      final doc = await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).get();
 
-        lastChecked = "Database: '$dbUser' / '$dbPass'\nYou typed: '$inputUser' / '$inputPass'";
+      if (doc.exists && doc.data()!['role'] == 'Admin') {
+        try {
+          final locData = await LocationService.fetchIpAndLocation();
+          await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).update({
+            'ip': locData['ip'],
+            'location': locData['location'],
+            'lastLogin': FieldValue.serverTimestamp(),
+          });
+        } catch (_) {}
 
-        if (dbUser == inputUser && dbPass == inputPass) {
-          foundMatch = true;
-          break;
-        }
-      }
-
-      if (foundMatch) {
         if (mounted) {
           Navigator.pushReplacementNamed(context, '/admin_dashboard');
         }
       } else {
+        await FirebaseAuth.instance.signOut();
         if (mounted) {
           setState(() {
-            _errorMessage = "No Match Found!\nLast checked account:\n$lastChecked";
+            _errorMessage = 'Access Denied: You do not have Admin privileges.';
             _isLoading = false;
           });
         }
@@ -71,7 +65,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Database Error. Check Firebase Rules.\n$e';
+          _errorMessage = 'Login Failed: ${e.toString()}';
           _isLoading = false;
         });
       }
@@ -125,7 +119,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
               TextField(
                 controller: _idController,
                 decoration: InputDecoration(
-                  labelText: 'Admin ID',
+                  labelText: 'Admin Email',
                   prefixIcon: const Icon(Icons.person),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
